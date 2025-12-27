@@ -11,17 +11,16 @@ class CineWiseAgent:
     def __init__(self):
         api_key = os.getenv("GROQ_API_KEY")
         if not api_key:
-            raise ValueError("❌ GROQ_API_KEY חסר בקובץ .env")
+            raise ValueError("❌ GROQ_API_KEY is missing in .env file")
         
         self.client = Groq(api_key=api_key)
-        # שימוש במודל 70B כדי להבטיח יכולות Reasoning גבוהות
-        # self.model = "llama-3.3-70b-versatile" 
-        # שנה את השורה הזו:
-        self.model = "llama-3.1-8b-instant"
         
+        # Using Llama 3.3 70B for superior reasoning and tool calling accuracy
+        self.model = "llama-3.3-70b-versatile" 
+       
         self.tools = MovieTools()
         
-        # טעינת הפרומפט המעודכן (עם הוראות ה-CoT וה-Verification)
+        # Load the system prompt containing CoT instructions and visual formatting rules
         with open("prompts/system_prompt.txt", "r", encoding="utf-8") as f:
             system_content = f.read()
             
@@ -32,34 +31,34 @@ class CineWiseAgent:
     def chat(self, user_input):
         self.history.append({"role": "user", "content": user_input})
         
-        # שלב 1: Thought & Action
-        # המודל מנתח את הבקשה ומחליט אם להפעיל כלי
+        # STEP 1: Thought & Action
+        # The model analyzes the request and decides which tool to invoke
         response = self.client.chat.completions.create(
             model=self.model,
             messages=self.history,
             tools=MOVIE_TOOLS_SCHEMA,
             tool_choice="auto",
-            temperature=0.1 # טמפרטורה נמוכה לדיוק ב-Reasoning
+            temperature=0.1 # Low temperature for consistent reasoning
         )
 
         response_message = response.choices[0].message
         
-        # הצגת ה-Thought של הסוכן (אם הוא כתב כזה לפני הקריאה לכלי)
+        # Display the Agent's internal thought process if provided
         if response_message.content:
             print(f"\n🧠 [Agent Thought]: {response_message.content}")
         
-        # הוספת הודעת האסיסטנט (כולל ה-Tool Calls) להיסטוריה - קריטי ל-LLM Tool Calling
+        # Append assistant message (including tool calls) to history - Essential for multi-turn LLM Tool Calling
         self.history.append(response_message)
 
-        # שלב 2: Execution & Observation
+        # STEP 2: Execution & Observation
         if response_message.tool_calls:
             for tool_call in response_message.tool_calls:
                 function_name = tool_call.function.name
                 args = json.loads(tool_call.function.arguments)
                 
-                print(f"🎬 [Action]: מפעיל {function_name}...")
+                print(f"🎬 [Action]: Executing {function_name}...")
                 
-                # הרצת הכלי
+                # Dynamic Tool Execution logic
                 if function_name == "search_movie":
                     result = self.tools.search_movie(**args)
                 elif function_name == "discover_movies":
@@ -71,7 +70,7 @@ class CineWiseAgent:
                 else:
                     result = {"error": "Tool not found"}
 
-                # החזרת ה-Observation (התוצאה) למודל
+                # Return the Observation (API result) back to the model
                 self.history.append({
                     "role": "tool",
                     "tool_call_id": tool_call.id,
@@ -79,8 +78,8 @@ class CineWiseAgent:
                     "content": json.dumps(result)
                 })
 
-            # שלב 3: Final Verification & Response
-            # המודל בוחן את התוצאות ומנסח תשובה סופית למשתמש
+            # STEP 3: Final Verification & Response Synthesis
+            # The model reviews the observations and formulates a grounded response
             final_response = self.client.chat.completions.create(
                 model=self.model,
                 messages=self.history
@@ -89,7 +88,7 @@ class CineWiseAgent:
             self.history.append({"role": "assistant", "content": ans})
             return ans
         
-        # אם לא היו Tool Calls, פשוט מחזירים את התשובה (כמו במקרה של "פסטה")
+        # Fallback if no tool calls were generated (e.g., general greetings or out-of-scope topics)
         ans = response_message.content
         self.history.append({"role": "assistant", "content": ans})
         return ans

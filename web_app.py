@@ -8,17 +8,33 @@ st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@400;700&display=swap');
     
-    html, body, [data-testid="ststAppViewContainer"] {
+    html, body, [data-testid="stAppViewContainer"] {
         direction: RTL;
         text-align: right;
         font-family: 'Assistant', sans-serif;
     }
+
+    /* יישור בועות הצ'אט */
     [data-testid="stChatMessage"] {
         flex-direction: row-reverse !important;
-        text-align: right;
     }
+
+    /* סידור הטקסט והתמונה */
     .stMarkdown {
         text-align: right;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start; /* שומר על התמונה בצד ימין (תחילת השורה ב-RTL) */
+    }
+
+    /* הגדרות התמונה */
+    [data-testid="stChatMessage"] img {
+        display: block; /* גורם לתמונה לרדת שורה ולא "להידחף" לטקסט */
+        max-width: 200px;
+        height: auto;
+        border-radius: 10px;
+        margin: 15px 0; /* רווח מעל ומתחת לתמונה */
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
     </style>
     """, unsafe_allow_html=True)
